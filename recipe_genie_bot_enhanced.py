@@ -1,6 +1,7 @@
 #!/usr/bin/env python3
 """
 Recipe Genie - Enhanced Telegram bot that provides recipe suggestions using a local LLM
+Supports both English and Spanish localization
 """
 
 import asyncio
@@ -11,6 +12,7 @@ import json
 from typing import Optional, Tuple
 from telegram import Update
 from telegram.ext import Application, CommandHandler, MessageHandler, filters, ContextTypes
+from langdetect import detect, LangDetectException
 from config import *
 from llm_providers import generate_recipe
 
@@ -21,30 +23,56 @@ logging.basicConfig(
 )
 logger = logging.getLogger(__name__)
 
+def detect_language(text: str) -> str:
+    """
+    Detect the language of the input text.
+    
+    Args:
+        text (str): The text to analyze
+        
+    Returns:
+        str: Language code ('es' for Spanish, 'en' for English, default to 'en')
+    """
+    try:
+        lang = detect(text)
+        return lang if lang in ['es', 'en'] else 'en'
+    except LangDetectException:
+        return 'en'
 
-
-def detect_intent(message: str) -> Tuple[str, str]:
+def detect_intent(message: str, language: str = 'en') -> Tuple[str, str]:
     """
     Detect whether the user is asking for a specific recipe or providing ingredients.
     
     Args:
         message (str): User's message
+        language (str): Language code ('en' or 'es')
         
     Returns:
         Tuple[str, str]: (intent_type, cleaned_query)
     """
     message_lower = message.lower().strip()
     
+    # Select appropriate keywords based on language
+    if language == 'es':
+        recipe_keywords = RECIPE_KEYWORDS_ES
+        dish_names = DISH_NAMES_ES
+        common_ingredients = COMMON_INGREDIENTS_ES
+    else:
+        recipe_keywords = RECIPE_KEYWORDS_EN
+        dish_names = DISH_NAMES_EN
+        common_ingredients = COMMON_INGREDIENTS_EN
+    
     # Check for recipe-related keywords
-    has_recipe_keywords = any(keyword in message_lower for keyword in RECIPE_KEYWORDS)
+    has_recipe_keywords = any(keyword in message_lower for keyword in recipe_keywords)
     
     # Check for dish names
-    has_dish_names = any(dish in message_lower for dish in DISH_NAMES)
+    has_dish_names = any(dish in message_lower for dish in dish_names)
     
     # Check if it looks like a list of ingredients
     ingredient_patterns = [
-        r'\b(' + '|'.join(COMMON_INGREDIENTS) + r')\b',
+        r'\b(' + '|'.join(common_ingredients) + r')\b',
         r'[,\s]+(and\s+)?[a-z]+',  # Pattern for comma-separated items
+        r'[,\s]+(y\s+)?[a-z]+',    # Pattern for comma-separated items in Spanish
     ]
     
     looks_like_ingredients = any(re.search(pattern, message_lower) for pattern in ingredient_patterns)
@@ -58,19 +86,44 @@ def detect_intent(message: str) -> Tuple[str, str]:
         # Default to ingredient-based if unclear
         return "ingredient_based", message.strip()
 
-def build_prompt(intent: str, query: str) -> str:
+def build_prompt(intent: str, query: str, language: str = 'en') -> str:
     """
-    Build the appropriate prompt for the LLM based on user intent.
+    Build the appropriate prompt for the LLM based on user intent and language.
     
     Args:
         intent (str): The detected intent ('specific_recipe' or 'ingredient_based')
         query (str): The user's query
+        language (str): Language code ('en' or 'es')
         
     Returns:
         str: The formatted prompt for the LLM
     """
-    if intent == "ingredient_based":
-        return f"""You are a friendly cooking assistant. Suggest a simple recipe or meal idea using these ingredients: {query}. 
+    if language == 'es':
+        if intent == "ingredient_based":
+            return f"""Eres un asistente de cocina amigable. Sugiere una receta o idea de comida sencilla usando estos ingredientes: {query}. 
+
+Por favor incluye:
+- Un nombre claro para la receta
+- Lista de ingredientes con cantidades
+- Instrucciones simples paso a paso
+- Tiempo de cocción y porciones
+- Sustituciones o consejos rápidos si es posible
+
+Mantén la respuesta casual, fácil de seguir y bajo 300 palabras. ¡Usa emojis para hacerla amigable!"""
+        else:  # specific_recipe
+            return f"""Eres un asistente de cocina útil. Proporciona una receta clara y fácil de seguir para: {query}.
+
+Por favor incluye:
+- Lista completa de ingredientes con cantidades
+- Instrucciones de cocción paso a paso
+- Tiempo de preparación y cocción
+- Número de porciones
+- Cualquier consejo útil o variaciones
+
+Mantén un tono casual, conciso y bajo 400 palabras. ¡Usa emojis para hacerlo amigable!"""
+    else:
+        if intent == "ingredient_based":
+            return f"""You are a friendly cooking assistant. Suggest a simple recipe or meal idea using these ingredients: {query}. 
 
 Please include:
 - A clear recipe name
@@ -80,8 +133,8 @@ Please include:
 - Substitutions or quick tips if possible
 
 Keep the response casual, easy to follow, and under 300 words. Use emojis to make it friendly!"""
-    else:  # specific_recipe
-        return f"""You are a helpful cooking assistant. Provide a clear, easy-to-follow recipe for: {query}.
+        else:  # specific_recipe
+            return f"""You are a helpful cooking assistant. Provide a clear, easy-to-follow recipe for: {query}.
 
 Please include:
 - Complete list of ingredients with measurements
@@ -93,7 +146,7 @@ Please include:
 Keep it casual, concise, and under 400 words. Use emojis to make it friendly!"""
 
 async def start_command(update: Update, context: ContextTypes.DEFAULT_TYPE) -> None:
-    """Handle the /start command."""
+    """Handle the /start command with bilingual support."""
     welcome_message = """
 🍳 *Welcome to Recipe Genie!* 🧙‍♂️
 
@@ -120,13 +173,41 @@ I'll automatically detect what you need and provide helpful cooking suggestions!
 /help - Show help information
 
 Let's start cooking! 🎉
+
+---
+
+🍳 *¡Bienvenido a Recipe Genie!* 🧙‍♂️
+
+¡Soy tu asistente de cocina con IA que puede ayudarte con recetas usando modelos de IA!
+
+*Cómo usarme:*
+
+📝 *Recetas basadas en ingredientes:*
+Envíame una lista de ingredientes como:
+• "tomate, pollo, arroz"
+• "huevos, leche, harina"
+• "res, cebolla, papas"
+
+🍽️ *Solicitudes de recetas específicas:*
+Pide platos específicos como:
+• "receta de panqueques"
+• "cómo hacer brownies"
+• "receta de curry de pollo"
+
+¡Detectaré automáticamente lo que necesitas y te daré sugerencias útiles de cocina!
+
+*Comandos:*
+/start - Mostrar este mensaje de bienvenida
+/help - Mostrar información de ayuda
+
+¡Empecemos a cocinar! 🎉
 """
     
     await update.message.reply_text(welcome_message, parse_mode='Markdown')
     logger.info(f"User {update.effective_user.id} started the bot")
 
 async def help_command(update: Update, context: ContextTypes.DEFAULT_TYPE) -> None:
-    """Handle the /help command."""
+    """Handle the /help command with bilingual support."""
     help_message = """
 🍳 *Recipe Genie Help* 🧙‍♂️
 
@@ -146,16 +227,38 @@ async def help_command(update: Update, context: ContextTypes.DEFAULT_TYPE) -> No
 • Keep your ingredient lists simple
 • Be specific with recipe requests
 • I'll suggest substitutions when possible
-• Maximum input length: 500 characters
 
 Need help? Just send me ingredients or ask for a recipe!
+
+---
+
+🍳 *Ayuda de Recipe Genie* 🧙‍♂️
+
+*Ejemplos de Uso:*
+
+*Basado en ingredientes:*
+• "tomate, pollo, arroz"
+• "huevos, leche, harina, azúcar"
+• "res, cebolla, ajo, papas"
+
+*Recetas específicas:*
+• "receta de panqueques"
+• "cómo hacer pastel de chocolate"
+• "receta de salteado de pollo"
+
+*Consejos:*
+• Mantén tus listas de ingredientes simples
+• Sé específico con las solicitudes de recetas
+• Sugeriré sustituciones cuando sea posible
+
+¿Necesitas ayuda? ¡Solo envíame ingredientes o pide una receta!
 """
     
     await update.message.reply_text(help_message, parse_mode='Markdown')
     logger.info(f"User {update.effective_user.id} requested help")
 
 async def handle_message(update: Update, context: ContextTypes.DEFAULT_TYPE) -> None:
-    """Handle incoming messages and generate recipe responses."""
+    """Handle incoming messages and generate recipe responses with language detection."""
     user_message = update.message.text.strip()
     user_id = update.effective_user.id
     
@@ -165,27 +268,35 @@ async def handle_message(update: Update, context: ContextTypes.DEFAULT_TYPE) -> 
     # Check input length
     if len(user_message) > MAX_INPUT_LENGTH:
         await update.message.reply_text(
-            f"❌ Your message is too long! Please keep it under {MAX_INPUT_LENGTH} characters."
+            f"❌ Your message is too long! Please keep it under {MAX_INPUT_LENGTH} characters.\n\n"
+            f"❌ ¡Tu mensaje es muy largo! Por favor manténlo bajo {MAX_INPUT_LENGTH} caracteres."
         )
         return
     
     # Skip empty messages
     if not user_message:
-        await update.message.reply_text("Please send me some ingredients or ask for a recipe!")
+        await update.message.reply_text(
+            "Please send me some ingredients or ask for a recipe!\n\n"
+            "¡Por favor envíame algunos ingredientes o pide una receta!"
+        )
         return
     
     try:
+        # Detect language
+        language = detect_language(user_message)
+        logger.info(f"Detected language: {language} for user {user_id}")
+        
         # Detect user intent
-        intent, cleaned_query = detect_intent(user_message)
+        intent, cleaned_query = detect_intent(user_message, language)
         logger.info(f"Detected intent: {intent} for query: {cleaned_query}")
         
         # Build the prompt
-        prompt = build_prompt(intent, cleaned_query)
+        prompt = build_prompt(intent, cleaned_query, language)
         
         # Show typing indicator
         await context.bot.send_chat_action(chat_id=update.effective_chat.id, action="typing")
         
-        # Generate recipe response
+        # Generate recipe response using the LLM provider
         response = generate_recipe(prompt)
         
         # Send the response
@@ -197,11 +308,12 @@ async def handle_message(update: Update, context: ContextTypes.DEFAULT_TYPE) -> 
     except Exception as e:
         logger.error(f"Error processing message from user {user_id}: {str(e)}")
         await update.message.reply_text(
-            "😔 Sorry, I encountered an error while generating your recipe. Please try again!"
+            "😔 Sorry, I encountered an error while generating your recipe. Please try again!\n\n"
+            "😔 Lo siento, encontré un error al generar tu receta. ¡Por favor inténtalo de nuevo!"
         )
 
 async def error_handler(update: object, context: ContextTypes.DEFAULT_TYPE) -> None:
-    """Handle errors gracefully."""
+    """Handle errors gracefully with bilingual support."""
     logger.error(f"Exception while handling an update: {context.error}")
     
     # Try to send an error message to the user if possible
@@ -209,7 +321,8 @@ async def error_handler(update: object, context: ContextTypes.DEFAULT_TYPE) -> N
         try:
             await context.bot.send_message(
                 chat_id=update.effective_chat.id,
-                text="😔 Sorry, something went wrong. Please try again later!"
+                text="😔 Sorry, something went wrong. Please try again later!\n\n"
+                     "😔 Lo siento, algo salió mal. ¡Por favor inténtalo más tarde!"
             )
         except Exception as e:
             logger.error(f"Failed to send error message: {str(e)}")
@@ -233,7 +346,7 @@ def main() -> None:
     application.add_error_handler(error_handler)
     
     # Start the bot
-    logger.info("Starting Recipe Genie bot...")
+    logger.info("Starting Recipe Genie enhanced bot with Spanish localization support...")
     application.run_polling(allowed_updates=Update.ALL_TYPES)
 
 if __name__ == "__main__":

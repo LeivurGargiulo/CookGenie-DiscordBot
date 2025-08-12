@@ -7,6 +7,7 @@ A Telegram bot that provides recipe suggestions using a local LLM. Recipe Genie 
 - **Ingredient-based recipe suggestions**: Send a list of ingredients and get recipe ideas
 - **Specific recipe requests**: Ask for detailed recipes for specific dishes
 - **Automatic intent detection**: The bot automatically detects whether you're providing ingredients or asking for a specific recipe
+- **🌍 Spanish localization**: Full support for Spanish language with automatic detection
 - **Multiple LLM providers**: Support for both local LLM (LMStudio) and OpenRouter
 - **Async processing**: Handles multiple users efficiently
 - **Error handling**: Graceful error handling and user feedback
@@ -111,6 +112,34 @@ chicken curry recipe
 ```
 
 The bot will provide detailed instructions for the requested dish.
+
+## 🌍 Spanish Localization
+
+Recipe Genie now supports Spanish language with automatic detection! Users can interact with the bot in both English and Spanish.
+
+### Spanish Usage Examples
+
+**Ingredient-based queries:**
+```
+tomate, pollo, arroz
+huevos, leche, harina, azúcar
+res, cebolla, ajo, papas
+```
+
+**Specific recipe requests:**
+```
+receta de panqueques
+cómo hacer brownies
+receta de curry de pollo
+```
+
+### Features
+- **Automatic language detection**: The bot detects whether messages are in English or Spanish
+- **Bilingual responses**: All bot messages and recipes are provided in the detected language
+- **Seamless switching**: Users can switch between languages in the same conversation
+- **Bilingual keywords**: Recipe keywords, dish names, and ingredients are recognized in both languages
+
+For detailed information about the Spanish localization features, see [README_SPANISH_LOCALIZATION.md](README_SPANISH_LOCALIZATION.md).
 
 ## LLM Provider Integration
 

@@ -14,14 +14,20 @@ BOT_TOKEN = os.getenv("BOT_TOKEN", "YOUR_BOT_TOKEN_HERE")
 MAX_INPUT_LENGTH = int(os.getenv("MAX_INPUT_LENGTH", "500"))
 LOG_LEVEL = os.getenv("LOG_LEVEL", "INFO")
 
-# Recipe-related keywords for intent detection
-RECIPE_KEYWORDS: List[str] = [
+# Recipe-related keywords for intent detection (English)
+RECIPE_KEYWORDS_EN: List[str] = [
     'recipe', 'how to make', 'how to cook', 'instructions', 'directions',
     'ingredients', 'steps', 'method', 'preparation', 'cooking'
 ]
 
-# Common dish names for better intent detection
-DISH_NAMES: List[str] = [
+# Recipe-related keywords for intent detection (Spanish)
+RECIPE_KEYWORDS_ES: List[str] = [
+    'receta', 'cómo hacer', 'cómo cocinar', 'instrucciones', 'direcciones',
+    'ingredientes', 'pasos', 'método', 'preparación', 'cocinar', 'cocción'
+]
+
+# Common dish names for better intent detection (English)
+DISH_NAMES_EN: List[str] = [
     'pancake', 'pancakes', 'brownie', 'brownies', 'cake', 'cookies', 'bread',
     'pasta', 'pizza', 'soup', 'salad', 'stew', 'curry', 'stir fry', 'roast',
     'grill', 'bake', 'fry', 'boil', 'steam', 'sauté', 'braise', 'lasagna',
@@ -29,8 +35,17 @@ DISH_NAMES: List[str] = [
     'noodles', 'rice', 'quinoa', 'oatmeal', 'cereal', 'smoothie', 'juice'
 ]
 
-# Common ingredients for better pattern matching
-COMMON_INGREDIENTS: List[str] = [
+# Common dish names for better intent detection (Spanish)
+DISH_NAMES_ES: List[str] = [
+    'panqueque', 'panqueques', 'brownie', 'brownies', 'pastel', 'galletas', 'pan',
+    'pasta', 'pizza', 'sopa', 'ensalada', 'estofado', 'curry', 'salteado', 'asado',
+    'parrilla', 'horneado', 'frito', 'hervido', 'vapor', 'salteado', 'braseado', 'lasaña',
+    'espagueti', 'hamburguesa', 'sándwich', 'taco', 'burrito', 'sushi', 'ramen',
+    'fideos', 'arroz', 'quinua', 'avena', 'cereal', 'batido', 'jugo'
+]
+
+# Common ingredients for better pattern matching (English)
+COMMON_INGREDIENTS_EN: List[str] = [
     'tomato', 'tomatoes', 'chicken', 'beef', 'pork', 'fish', 'salmon', 'tuna',
     'rice', 'pasta', 'onion', 'garlic', 'cheese', 'egg', 'eggs', 'milk',
     'flour', 'sugar', 'salt', 'pepper', 'oil', 'butter', 'cream', 'yogurt',
@@ -41,6 +56,24 @@ COMMON_INGREDIENTS: List[str] = [
     'oregano', 'basil', 'thyme', 'rosemary', 'parsley', 'cilantro', 'ginger',
     'turmeric', 'cumin', 'paprika', 'chili', 'jalapeño', 'bell pepper'
 ]
+
+# Common ingredients for better pattern matching (Spanish)
+COMMON_INGREDIENTS_ES: List[str] = [
+    'tomate', 'tomates', 'pollo', 'res', 'cerdo', 'pescado', 'salmón', 'atún',
+    'arroz', 'pasta', 'cebolla', 'ajo', 'queso', 'huevo', 'huevos', 'leche',
+    'harina', 'azúcar', 'sal', 'pimienta', 'aceite', 'mantequilla', 'crema', 'yogur',
+    'limón', 'lima', 'zanahoria', 'papa', 'papas', 'espinaca', 'lechuga',
+    'pepino', 'pimiento', 'champiñón', 'champiñones', 'brócoli', 'coliflor',
+    'calabacín', 'berenjena', 'aguacate', 'plátano', 'manzana', 'naranja', 'fresa',
+    'arándano', 'frambuesa', 'chocolate', 'vainilla', 'canela', 'nuez moscada',
+    'orégano', 'albahaca', 'tomillo', 'romero', 'perejil', 'cilantro', 'jengibre',
+    'cúrcuma', 'comino', 'pimentón', 'chile', 'jalapeño', 'pimiento morrón'
+]
+
+# Legacy support - keep original lists for backward compatibility
+RECIPE_KEYWORDS = RECIPE_KEYWORDS_EN
+DISH_NAMES = DISH_NAMES_EN
+COMMON_INGREDIENTS = COMMON_INGREDIENTS_EN
 
 # LLM configuration (LMStudio compatible)
 LLM_ENDPOINT = os.getenv("LLM_ENDPOINT", "http://localhost:1234/v1/chat/completions")
