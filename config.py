@@ -4,10 +4,15 @@ Configuration settings for Recipe Genie bot
 
 import os
 from typing import List
+from dotenv import load_dotenv
+
+# Load environment variables from .env file
+load_dotenv()
 
 # Bot configuration
 BOT_TOKEN = os.getenv("BOT_TOKEN", "YOUR_BOT_TOKEN_HERE")
-MAX_INPUT_LENGTH = 500
+MAX_INPUT_LENGTH = int(os.getenv("MAX_INPUT_LENGTH", "500"))
+LOG_LEVEL = os.getenv("LOG_LEVEL", "INFO")
 
 # Recipe-related keywords for intent detection
 RECIPE_KEYWORDS: List[str] = [
@@ -37,6 +42,10 @@ COMMON_INGREDIENTS: List[str] = [
     'turmeric', 'cumin', 'paprika', 'chili', 'jalapeño', 'bell pepper'
 ]
 
-# LLM configuration
-LLM_ENDPOINT = os.getenv("LLM_ENDPOINT", "http://localhost:8000/generate")
-LLM_TIMEOUT = 30  # seconds
+# LLM configuration (LMStudio compatible)
+LLM_ENDPOINT = os.getenv("LLM_ENDPOINT", "http://localhost:1234/v1/chat/completions")
+LLM_API_KEY = os.getenv("LLM_API_KEY", "")
+LLM_MODEL = os.getenv("LLM_MODEL", "your_model_name_here")
+LLM_TIMEOUT = int(os.getenv("LLM_TIMEOUT", "30"))
+LLM_MAX_TOKENS = int(os.getenv("LLM_MAX_TOKENS", "500"))
+LLM_TEMPERATURE = float(os.getenv("LLM_TEMPERATURE", "0.7"))

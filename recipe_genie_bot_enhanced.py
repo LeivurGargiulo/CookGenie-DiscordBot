@@ -16,14 +16,14 @@ from config import *
 # Configure logging
 logging.basicConfig(
     format='%(asctime)s - %(name)s - %(levelname)s - %(message)s',
-    level=logging.INFO
+    level=getattr(logging, LOG_LEVEL)
 )
 logger = logging.getLogger(__name__)
 
 def generate_recipe(prompt: str) -> str:
     """
-    Generate recipe using local LLM.
-    This function can be customized based on your local LLM setup.
+    Generate recipe using local LLM (LMStudio compatible).
+    This function is configured for LMStudio's OpenAI-compatible API.
     
     Args:
         prompt (str): The prompt to send to the LLM
@@ -32,38 +32,26 @@ def generate_recipe(prompt: str) -> str:
         str: The LLM-generated response
     """
     try:
-        # Option 1: HTTP API call to local LLM server
-        # Uncomment and modify this section if your LLM runs as an HTTP server
-        """
-        response = requests.post(
-            LLM_ENDPOINT,
-            json={'prompt': prompt},
-            timeout=LLM_TIMEOUT
-        )
-        response.raise_for_status()
-        return response.json()['response']
-        """
-        
-        # Option 2: Direct function call to local LLM
-        # Uncomment and modify this section if you have a local LLM function
-        """
-        from your_llm_module import generate_text
-        return generate_text(prompt)
-        """
-        
-        # Option 3: OpenAI-compatible API call
-        # Uncomment and modify this section if using OpenAI-compatible local LLM
-        """
+        # LMStudio OpenAI-compatible API call
         headers = {
-            'Content-Type': 'application/json',
-            'Authorization': f'Bearer {os.getenv("LLM_API_KEY", "")}'
+            'Content-Type': 'application/json'
         }
+        
+        # Add API key if provided
+        if LLM_API_KEY:
+            headers['Authorization'] = f'Bearer {LLM_API_KEY}'
+        
         data = {
-            'model': 'your-local-model',
+            'model': LLM_MODEL,
             'messages': [{'role': 'user', 'content': prompt}],
-            'max_tokens': 500,
-            'temperature': 0.7
+            'max_tokens': LLM_MAX_TOKENS,
+            'temperature': LLM_TEMPERATURE,
+            'stream': False
         }
+        
+        logger.info(f"Sending request to LLM endpoint: {LLM_ENDPOINT}")
+        logger.info(f"Using model: {LLM_MODEL}")
+        
         response = requests.post(
             LLM_ENDPOINT,
             headers=headers,
@@ -71,47 +59,23 @@ def generate_recipe(prompt: str) -> str:
             timeout=LLM_TIMEOUT
         )
         response.raise_for_status()
-        return response.json()['choices'][0]['message']['content']
-        """
         
-        # Placeholder response for testing (remove this when using real LLM)
-        if "ingredients" in prompt.lower():
-            return """🍳 *Quick Recipe Idea:*
-
-**Simple Stir-Fry**
-- Heat oil in a pan over medium heat
-- Add your ingredients and stir-fry for 5-7 minutes
-- Season with salt, pepper, and your favorite spices
-- Serve hot!
-
-💡 *Tip:* Add garlic and ginger for extra flavor!
-🔄 *Substitutions:* Use any oil you have, and feel free to add vegetables!"""
+        result = response.json()
+        
+        if 'choices' in result and len(result['choices']) > 0:
+            content = result['choices'][0]['message']['content']
+            logger.info(f"LLM response received: {len(content)} characters")
+            return content
         else:
-            return """🍽️ *Recipe:*
-
-**Ingredients:**
-- 2 cups flour
-- 1 cup milk
-- 2 eggs
-- 2 tbsp sugar
-- 1 tsp baking powder
-- Pinch of salt
-- 2 tbsp oil or melted butter
-
-**Instructions:**
-1. Mix dry ingredients in a large bowl
-2. Whisk wet ingredients separately
-3. Combine wet and dry ingredients, don't overmix
-4. Heat a pan over medium heat
-5. Cook until bubbles form, then flip
-6. Serve with your favorite toppings!
-
-⏱️ *Prep time:* 10 minutes
-🔥 *Cook time:* 15 minutes
-👥 *Serves:* 4 people
-
-Enjoy! 😊"""
+            logger.error(f"Unexpected LLM response format: {result}")
+            raise ValueError("Invalid response format from LLM")
             
+    except requests.exceptions.ConnectionError as e:
+        logger.error(f"Connection failed to LLM server: {str(e)}")
+        return "😔 Sorry, I can't connect to my recipe database. Please check if LMStudio is running and try again!"
+    except requests.exceptions.Timeout as e:
+        logger.error(f"LLM request timed out: {str(e)}")
+        return "😔 Sorry, my recipe database is taking too long to respond. Please try again!"
     except requests.exceptions.RequestException as e:
         logger.error(f"LLM API request failed: {str(e)}")
         return "😔 Sorry, I'm having trouble connecting to my recipe database. Please try again later!"

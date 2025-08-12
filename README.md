@@ -30,15 +30,28 @@ pip install -r requirements.txt
 
 ### 3. Configuration
 
-Edit `config.py` or set environment variables:
+Copy the example environment file and configure your settings:
 
-```python
-# In config.py
-BOT_TOKEN = "YOUR_BOT_TOKEN_HERE"
+```bash
+# Copy the example environment file
+cp .env.example .env
 
-# Or set environment variable
-export BOT_TOKEN="your_bot_token_here"
+# Edit the .env file with your actual values
+nano .env
 ```
+
+Required settings in `.env`:
+- `BOT_TOKEN`: Your Telegram bot token from @BotFather
+- `LLM_ENDPOINT`: LMStudio API endpoint (default: http://localhost:1234/v1/chat/completions)
+- `LLM_MODEL`: Your model name in LMStudio
+
+Optional settings:
+- `LLM_API_KEY`: API key if required by your setup
+- `LLM_TIMEOUT`: Request timeout in seconds (default: 30)
+- `LLM_MAX_TOKENS`: Maximum tokens for responses (default: 500)
+- `LLM_TEMPERATURE`: Response creativity (default: 0.7)
+- `MAX_INPUT_LENGTH`: Maximum user input length (default: 500)
+- `LOG_LEVEL`: Logging level (default: INFO)
 
 ### 4. Run the Bot
 
@@ -74,9 +87,42 @@ chicken curry recipe
 
 The bot will provide detailed instructions for the requested dish.
 
-## Local LLM Integration
+## LMStudio Integration
 
-The bot includes a placeholder `generate_recipe()` function that you can customize for your local LLM setup. Here are some common integration patterns:
+The bot is configured to work with LMStudio's OpenAI-compatible API. Here's how to set it up:
+
+### 1. Install and Configure LMStudio
+
+1. Download and install [LMStudio](https://lmstudio.ai/)
+2. Load your preferred model in LMStudio
+3. Start the local server in LMStudio (usually on port 1234)
+4. Note your model name for the configuration
+
+### 2. Configure Environment Variables
+
+In your `.env` file:
+
+```bash
+BOT_TOKEN=your_telegram_bot_token
+LLM_ENDPOINT=http://localhost:1234/v1/chat/completions
+LLM_MODEL=your_model_name_here
+LLM_API_KEY=  # Leave empty if not required
+LLM_TIMEOUT=30
+LLM_MAX_TOKENS=500
+LLM_TEMPERATURE=0.7
+```
+
+### 3. Test the Integration
+
+Run the test script to verify your LMStudio setup:
+
+```bash
+python test_llm_integration.py
+```
+
+## Alternative LLM Integration
+
+If you're using a different local LLM setup, you can customize the `generate_recipe()` function:
 
 ### Option 1: HTTP API Server
 
@@ -138,8 +184,12 @@ def generate_recipe(prompt: str) -> str:
 
 ### LLM Settings
 
-- `LLM_ENDPOINT`: URL for your local LLM API (default: "http://localhost:8000/generate")
+- `LLM_ENDPOINT`: URL for your local LLM API (default: "http://localhost:1234/v1/chat/completions")
+- `LLM_MODEL`: Model name for your local LLM
+- `LLM_API_KEY`: API key if required by your setup
 - `LLM_TIMEOUT`: Timeout for LLM requests in seconds (default: 30)
+- `LLM_MAX_TOKENS`: Maximum tokens for responses (default: 500)
+- `LLM_TEMPERATURE`: Response creativity (default: 0.7)
 
 ### Intent Detection
 
@@ -156,9 +206,11 @@ You can customize these lists in `config.py` to improve intent detection.
 ```
 recipe-genie/
 ├── recipe_genie_bot.py          # Basic bot implementation
-├── recipe_genie_bot_enhanced.py # Enhanced version with better LLM integration
+├── recipe_genie_bot_enhanced.py # Enhanced version with LMStudio integration
 ├── config.py                    # Configuration settings
 ├── requirements.txt             # Python dependencies
+├── .env.example                 # Environment variables template
+├── test_llm_integration.py      # LLM integration test script
 └── README.md                   # This file
 ```
 
@@ -188,11 +240,23 @@ Logs are formatted with timestamps and include relevant context.
 
 ## Testing
 
-For testing without a local LLM, the bot includes placeholder responses. You can test the bot by:
+### Test LLM Integration
 
-1. Setting up a Telegram bot with @BotFather
-2. Running the bot with the placeholder responses
-3. Sending test messages to verify functionality
+Before running the full bot, test your LMStudio integration:
+
+```bash
+python test_llm_integration.py
+```
+
+This will test the connection to your local LLM and verify the API format.
+
+### Test Bot Functionality
+
+1. Set up a Telegram bot with @BotFather
+2. Configure your `.env` file
+3. Start LMStudio and load your model
+4. Run the bot: `python recipe_genie_bot_enhanced.py`
+5. Send test messages to verify functionality
 
 ## Customization
 

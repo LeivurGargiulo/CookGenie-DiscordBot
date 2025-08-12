@@ -6,13 +6,17 @@ Test script for LLM integration with Recipe Genie bot
 import requests
 import json
 import os
-from config import LLM_ENDPOINT, LLM_TIMEOUT
+from config import LLM_ENDPOINT, LLM_TIMEOUT, LLM_API_KEY, LLM_MODEL, LLM_MAX_TOKENS, LLM_TEMPERATURE
 
 def test_llm_connection():
     """Test the connection to your local LLM."""
     print("🧪 Testing LLM Integration...")
     print(f"Endpoint: {LLM_ENDPOINT}")
+    print(f"Model: {LLM_MODEL}")
+    print(f"API Key: {'Set' if LLM_API_KEY else 'Not set'}")
     print(f"Timeout: {LLM_TIMEOUT} seconds")
+    print(f"Max Tokens: {LLM_MAX_TOKENS}")
+    print(f"Temperature: {LLM_TEMPERATURE}")
     print("-" * 50)
     
     # Test prompts
@@ -56,17 +60,22 @@ def test_llm_connection():
             except Exception as e:
                 print(f"❌ Format 1 failed: {str(e)}")
             
-            # Format 2: OpenAI-compatible format
+            # Format 2: LMStudio OpenAI-compatible format
             try:
                 headers = {
-                    'Content-Type': 'application/json',
-                    'Authorization': f'Bearer {os.getenv("LLM_API_KEY", "")}'
+                    'Content-Type': 'application/json'
                 }
+                
+                # Add API key if provided
+                if LLM_API_KEY:
+                    headers['Authorization'] = f'Bearer {LLM_API_KEY}'
+                
                 data = {
-                    'model': 'your-local-model',
+                    'model': LLM_MODEL,
                     'messages': [{'role': 'user', 'content': test['prompt']}],
-                    'max_tokens': 500,
-                    'temperature': 0.7
+                    'max_tokens': LLM_MAX_TOKENS,
+                    'temperature': LLM_TEMPERATURE,
+                    'stream': False
                 }
                 response = requests.post(
                     LLM_ENDPOINT,
@@ -78,13 +87,13 @@ def test_llm_connection():
                 result = response.json()
                 
                 if 'choices' in result and len(result['choices']) > 0:
-                    print("✅ Success! (OpenAI-compatible format)")
+                    print("✅ Success! (LMStudio OpenAI-compatible format)")
                     content = result['choices'][0]['message']['content']
                     print(f"Response: {content[:200]}...")
                     continue
                     
             except Exception as e:
-                print(f"❌ OpenAI-compatible format failed: {str(e)}")
+                print(f"❌ LMStudio OpenAI-compatible format failed: {str(e)}")
             
             # Format 3: Simple text response
             try:
