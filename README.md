@@ -7,7 +7,7 @@ A Telegram bot that provides recipe suggestions using a local LLM. Recipe Genie 
 - **Ingredient-based recipe suggestions**: Send a list of ingredients and get recipe ideas
 - **Specific recipe requests**: Ask for detailed recipes for specific dishes
 - **Automatic intent detection**: The bot automatically detects whether you're providing ingredients or asking for a specific recipe
-- **Local LLM integration**: Works with any local LLM setup
+- **Multiple LLM providers**: Support for both local LLM (LMStudio) and OpenRouter
 - **Async processing**: Handles multiple users efficiently
 - **Error handling**: Graceful error handling and user feedback
 - **Logging**: Comprehensive logging for debugging and monitoring
@@ -42,14 +42,21 @@ nano .env
 
 Required settings in `.env`:
 - `BOT_TOKEN`: Your Telegram bot token from @BotFather
+- `LLM_PROVIDER`: Choose "local" for local LLM or "openrouter" for OpenRouter
+
+For Local LLM (LMStudio):
 - `LLM_ENDPOINT`: LMStudio API endpoint (default: http://localhost:1234/v1/chat/completions)
 - `LLM_MODEL`: Your model name in LMStudio
 
+For OpenRouter:
+- `OPENROUTER_API_KEY`: Your OpenRouter API key from https://openrouter.ai/keys
+- `OPENROUTER_MODEL`: Model to use (default: anthropic/claude-3-haiku)
+
 Optional settings:
-- `LLM_API_KEY`: API key if required by your setup
-- `LLM_TIMEOUT`: Request timeout in seconds (default: 30)
-- `LLM_MAX_TOKENS`: Maximum tokens for responses (default: 500)
-- `LLM_TEMPERATURE`: Response creativity (default: 0.7)
+- `LLM_API_KEY`: API key if required by your local setup
+- `LLM_TIMEOUT` / `OPENROUTER_TIMEOUT`: Request timeout in seconds (default: 30)
+- `LLM_MAX_TOKENS` / `OPENROUTER_MAX_TOKENS`: Maximum tokens for responses (default: 500)
+- `LLM_TEMPERATURE` / `OPENROUTER_TEMPERATURE`: Response creativity (default: 0.7)
 - `MAX_INPUT_LENGTH`: Maximum user input length (default: 500)
 - `LOG_LEVEL`: Logging level (default: INFO)
 
@@ -61,6 +68,24 @@ python recipe_genie_bot.py
 
 # Enhanced version (recommended)
 python recipe_genie_bot_enhanced.py
+
+# OpenRouter optimized version
+python recipe_genie_bot_openrouter.py
+```
+
+### Quick Provider Switching
+
+Use the provider switcher to easily change between local LLM and OpenRouter:
+
+```bash
+# Switch to OpenRouter
+python switch_provider.py openrouter
+
+# Switch to Local LLM
+python switch_provider.py local
+
+# Check current configuration
+python switch_provider.py status
 ```
 
 ## Usage Examples
@@ -87,23 +112,70 @@ chicken curry recipe
 
 The bot will provide detailed instructions for the requested dish.
 
-## LMStudio Integration
+## LLM Provider Integration
+
+The bot supports multiple LLM providers. Choose the one that best fits your needs:
+
+### OpenRouter Integration (Recommended)
+
+OpenRouter provides access to multiple AI models through a single API. This is the easiest way to get started.
+
+#### 1. Get OpenRouter API Key
+
+1. Visit [OpenRouter](https://openrouter.ai/)
+2. Sign up for a free account
+3. Get your API key from the [keys page](https://openrouter.ai/keys)
+
+#### 2. Configure Environment Variables
+
+In your `.env` file:
+
+```bash
+BOT_TOKEN=your_telegram_bot_token
+LLM_PROVIDER=openrouter
+OPENROUTER_API_KEY=your_openrouter_api_key_here
+OPENROUTER_MODEL=anthropic/claude-3-haiku  # Popular models: anthropic/claude-3-haiku, openai/gpt-3.5-turbo, meta-llama/llama-3.1-8b-instruct
+OPENROUTER_TIMEOUT=30
+OPENROUTER_MAX_TOKENS=500
+OPENROUTER_TEMPERATURE=0.7
+```
+
+#### 3. Test the Integration
+
+Run the test script to verify your OpenRouter setup:
+
+```bash
+python test_llm_integration.py
+```
+
+#### Popular OpenRouter Models
+
+- `anthropic/claude-3-haiku` - Fast, cost-effective (default)
+- `openai/gpt-3.5-turbo` - Reliable and well-tested
+- `meta-llama/llama-3.1-8b-instruct` - Good performance
+- `google/gemini-flash-1.5` - Fast and accurate
+- `anthropic/claude-3.5-sonnet` - High quality (more expensive)
+
+You can browse all available models at [OpenRouter Models](https://openrouter.ai/models).
+
+### Local LLM Integration (LMStudio)
 
 The bot is configured to work with LMStudio's OpenAI-compatible API. Here's how to set it up:
 
-### 1. Install and Configure LMStudio
+#### 1. Install and Configure LMStudio
 
 1. Download and install [LMStudio](https://lmstudio.ai/)
 2. Load your preferred model in LMStudio
 3. Start the local server in LMStudio (usually on port 1234)
 4. Note your model name for the configuration
 
-### 2. Configure Environment Variables
+#### 2. Configure Environment Variables
 
 In your `.env` file:
 
 ```bash
 BOT_TOKEN=your_telegram_bot_token
+LLM_PROVIDER=local
 LLM_ENDPOINT=http://localhost:1234/v1/chat/completions
 LLM_MODEL=your_model_name_here
 LLM_API_KEY=  # Leave empty if not required
@@ -112,7 +184,7 @@ LLM_MAX_TOKENS=500
 LLM_TEMPERATURE=0.7
 ```
 
-### 3. Test the Integration
+#### 3. Test the Integration
 
 Run the test script to verify your LMStudio setup:
 
@@ -205,19 +277,23 @@ You can customize these lists in `config.py` to improve intent detection.
 
 ```
 recipe-genie/
-├── recipe_genie_bot.py          # Basic bot implementation
-├── recipe_genie_bot_enhanced.py # Enhanced version with LMStudio integration
-├── config.py                    # Configuration settings
-├── requirements.txt             # Python dependencies
-├── .env.example                 # Environment variables template
-├── test_llm_integration.py      # LLM integration test script
-└── README.md                   # This file
+├── recipe_genie_bot.py              # Basic bot implementation
+├── recipe_genie_bot_enhanced.py     # Enhanced version with multi-provider support
+├── recipe_genie_bot_openrouter.py   # OpenRouter optimized version
+├── llm_providers.py                 # LLM provider abstraction layer
+├── config.py                        # Configuration settings
+├── requirements.txt                 # Python dependencies
+├── .env.example                     # Environment variables template
+├── test_llm_integration.py          # LLM integration test script
+├── switch_provider.py               # Provider switching utility
+└── README.md                       # This file
 ```
 
 ## Commands
 
 - `/start` - Welcome message and usage instructions
 - `/help` - Help information and examples
+- `/status` - Show current LLM provider status (OpenRouter version only)
 
 ## Error Handling
 
