@@ -1,18 +1,18 @@
 #!/usr/bin/env python3
 """
-Recipe Genie - Enhanced Telegram bot that provides recipe suggestions using a local LLM
+Recipe Genie - OpenRouter Enhanced Telegram bot
+Optimized for OpenRouter API with advanced features
 """
 
 import asyncio
 import logging
 import re
-import requests
 import json
 from typing import Optional, Tuple
 from telegram import Update
 from telegram.ext import Application, CommandHandler, MessageHandler, filters, ContextTypes
 from config import *
-from llm_providers import generate_recipe
+from llm_providers import generate_recipe, get_llm_provider
 
 # Configure logging
 logging.basicConfig(
@@ -20,8 +20,6 @@ logging.basicConfig(
     level=getattr(logging, LOG_LEVEL)
 )
 logger = logging.getLogger(__name__)
-
-
 
 def detect_intent(message: str) -> Tuple[str, str]:
     """
@@ -94,10 +92,13 @@ Keep it casual, concise, and under 400 words. Use emojis to make it friendly!"""
 
 async def start_command(update: Update, context: ContextTypes.DEFAULT_TYPE) -> None:
     """Handle the /start command."""
-    welcome_message = """
+    provider = get_llm_provider()
+    provider_name = "OpenRouter" if LLM_PROVIDER.lower() == "openrouter" else "Local LLM"
+    
+    welcome_message = f"""
 🍳 *Welcome to Recipe Genie!* 🧙‍♂️
 
-I'm your AI cooking assistant that can help you with recipes using AI models.
+I'm your AI cooking assistant powered by {provider_name} that can help you with recipes!
 
 *How to use me:*
 
@@ -118,6 +119,7 @@ I'll automatically detect what you need and provide helpful cooking suggestions!
 *Commands:*
 /start - Show this welcome message
 /help - Show help information
+/status - Show current LLM provider status
 
 Let's start cooking! 🎉
 """
@@ -139,101 +141,148 @@ async def help_command(update: Update, context: ContextTypes.DEFAULT_TYPE) -> No
 
 *Specific recipes:*
 • "pancake recipe"
-• "how to make chocolate cake"
-• "chicken stir fry recipe"
+• "how to make brownies"
+• "chicken curry recipe"
+• "pasta carbonara"
+• "beef stir fry"
 
 *Tips:*
-• Keep your ingredient lists simple
-• Be specific with recipe requests
-• I'll suggest substitutions when possible
-• Maximum input length: 500 characters
+• Be specific with ingredients for better suggestions
+• Include cooking preferences (vegetarian, quick, etc.)
+• Ask for substitutions if needed
 
-Need help? Just send me ingredients or ask for a recipe!
+*Commands:*
+/start - Welcome message
+/help - This help message
+/status - Show LLM provider status
+
+Need more help? Just ask! 😊
 """
     
     await update.message.reply_text(help_message, parse_mode='Markdown')
-    logger.info(f"User {update.effective_user.id} requested help")
+
+async def status_command(update: Update, context: ContextTypes.DEFAULT_TYPE) -> None:
+    """Handle the /status command to show current LLM provider status."""
+    provider = get_llm_provider()
+    provider_name = "OpenRouter" if LLM_PROVIDER.lower() == "openrouter" else "Local LLM"
+    
+    if LLM_PROVIDER.lower() == "openrouter":
+        status_message = f"""
+🔧 *LLM Provider Status*
+
+*Provider:* {provider_name}
+*Model:* {OPENROUTER_MODEL}
+*API Key:* {'✅ Configured' if OPENROUTER_API_KEY else '❌ Not configured'}
+*Endpoint:* {OPENROUTER_ENDPOINT}
+
+*Settings:*
+• Max Tokens: {OPENROUTER_MAX_TOKENS}
+• Temperature: {OPENROUTER_TEMPERATURE}
+• Timeout: {OPENROUTER_TIMEOUT}s
+
+*Status:* {'🟢 Ready' if OPENROUTER_API_KEY else '🔴 Not configured'}
+"""
+    else:
+        status_message = f"""
+🔧 *LLM Provider Status*
+
+*Provider:* {provider_name}
+*Model:* {LLM_MODEL}
+*Endpoint:* {LLM_ENDPOINT}
+*API Key:* {'✅ Configured' if LLM_API_KEY else '❌ Not required'}
+
+*Settings:*
+• Max Tokens: {LLM_MAX_TOKENS}
+• Temperature: {LLM_TEMPERATURE}
+• Timeout: {LLM_TIMEOUT}s
+
+*Status:* 🟡 Check local server
+"""
+    
+    await update.message.reply_text(status_message, parse_mode='Markdown')
 
 async def handle_message(update: Update, context: ContextTypes.DEFAULT_TYPE) -> None:
     """Handle incoming messages and generate recipe responses."""
     user_message = update.message.text.strip()
     user_id = update.effective_user.id
     
-    # Log the incoming message
     logger.info(f"User {user_id} sent: {user_message}")
     
-    # Check input length
-    if len(user_message) > MAX_INPUT_LENGTH:
-        await update.message.reply_text(
-            f"❌ Your message is too long! Please keep it under {MAX_INPUT_LENGTH} characters."
-        )
+    # Input validation
+    if not user_message:
+        await update.message.reply_text("Please send me some ingredients or ask for a recipe! 😊")
         return
     
-    # Skip empty messages
-    if not user_message:
-        await update.message.reply_text("Please send me some ingredients or ask for a recipe!")
+    if len(user_message) > MAX_INPUT_LENGTH:
+        await update.message.reply_text(f"Your message is too long! Please keep it under {MAX_INPUT_LENGTH} characters. 😅")
         return
+    
+    # Show typing indicator
+    await context.bot.send_chat_action(chat_id=update.effective_chat.id, action="typing")
     
     try:
-        # Detect user intent
-        intent, cleaned_query = detect_intent(user_message)
-        logger.info(f"Detected intent: {intent} for query: {cleaned_query}")
+        # Detect intent
+        intent, query = detect_intent(user_message)
+        logger.info(f"Detected intent: {intent} for query: {query}")
         
-        # Build the prompt
-        prompt = build_prompt(intent, cleaned_query)
+        # Build prompt
+        prompt = build_prompt(intent, query)
         
-        # Show typing indicator
-        await context.bot.send_chat_action(chat_id=update.effective_chat.id, action="typing")
-        
-        # Generate recipe response
+        # Generate recipe
         response = generate_recipe(prompt)
         
-        # Send the response
-        await update.message.reply_text(response, parse_mode='Markdown')
-        
-        # Log the response
-        logger.info(f"Generated response for user {user_id}: {response[:100]}...")
+        # Send response
+        await update.message.reply_text(response)
+        logger.info(f"Successfully generated recipe for user {user_id}")
         
     except Exception as e:
         logger.error(f"Error processing message from user {user_id}: {str(e)}")
-        await update.message.reply_text(
-            "😔 Sorry, I encountered an error while generating your recipe. Please try again!"
-        )
+        await update.message.reply_text("😔 Sorry, I encountered an error while processing your request. Please try again!")
 
 async def error_handler(update: object, context: ContextTypes.DEFAULT_TYPE) -> None:
-    """Handle errors gracefully."""
+    """Handle errors in the bot."""
     logger.error(f"Exception while handling an update: {context.error}")
     
-    # Try to send an error message to the user if possible
-    if update and hasattr(update, 'effective_chat') and update.effective_chat:
-        try:
-            await context.bot.send_message(
-                chat_id=update.effective_chat.id,
-                text="😔 Sorry, something went wrong. Please try again later!"
-            )
-        except Exception as e:
-            logger.error(f"Failed to send error message: {str(e)}")
+    if update and hasattr(update, 'message'):
+        await update.message.reply_text("😔 Sorry, something went wrong. Please try again later!")
 
 def main() -> None:
     """Start the bot."""
-    # Validate bot token
-    if BOT_TOKEN == "YOUR_BOT_TOKEN_HERE":
-        logger.error("Please set your bot token in config.py or as BOT_TOKEN environment variable")
+    # Validate configuration
+    if not BOT_TOKEN or BOT_TOKEN == "YOUR_BOT_TOKEN_HERE":
+        logger.error("Bot token not configured! Please set BOT_TOKEN in your environment variables.")
         return
     
-    # Create the Application
+    if LLM_PROVIDER.lower() == "openrouter" and not OPENROUTER_API_KEY:
+        logger.error("OpenRouter API key not configured! Please set OPENROUTER_API_KEY in your environment variables.")
+        return
+    
+    # Create application
     application = Application.builder().token(BOT_TOKEN).build()
     
     # Add handlers
     application.add_handler(CommandHandler("start", start_command))
     application.add_handler(CommandHandler("help", help_command))
+    application.add_handler(CommandHandler("status", status_command))
     application.add_handler(MessageHandler(filters.TEXT & ~filters.COMMAND, handle_message))
     
     # Add error handler
     application.add_error_handler(error_handler)
     
+    # Log startup information
+    provider = get_llm_provider()
+    provider_name = "OpenRouter" if LLM_PROVIDER.lower() == "openrouter" else "Local LLM"
+    logger.info(f"Starting Recipe Genie bot with {provider_name} provider")
+    
+    if LLM_PROVIDER.lower() == "openrouter":
+        logger.info(f"OpenRouter Model: {OPENROUTER_MODEL}")
+        logger.info(f"OpenRouter Endpoint: {OPENROUTER_ENDPOINT}")
+    else:
+        logger.info(f"Local LLM Model: {LLM_MODEL}")
+        logger.info(f"Local LLM Endpoint: {LLM_ENDPOINT}")
+    
     # Start the bot
-    logger.info("Starting Recipe Genie bot...")
+    logger.info("Bot started successfully!")
     application.run_polling(allowed_updates=Update.ALL_TYPES)
 
 if __name__ == "__main__":
